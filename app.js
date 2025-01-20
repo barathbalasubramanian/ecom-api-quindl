@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const bodyParser = require('body-parser');
 const categoryRoutes = require('./routes/categoryRoutes');
 const variantRoutes = require('./routes/variantRoutes');
@@ -11,6 +12,8 @@ require('dotenv').config();
 
 const app = express();
 connectDB();
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use('/categories', categoryRoutes);
 app.use('/variants', variantRoutes);
