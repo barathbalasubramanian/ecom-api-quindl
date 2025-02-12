@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const marketingRoutes = require('./routes/marketingRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const couponRoutes = require('./routes/couponRoutes');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
@@ -21,6 +22,7 @@ app.use('/variants', variantRoutes);
 app.use('/products', productRoutes);
 app.use('/marketing', marketingRoutes);
 app.use('/orders', orderRoutes);
+app.use('/coupons', couponRoutes);
 
 app.use('/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
