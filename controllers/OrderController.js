@@ -92,3 +92,22 @@ exports.getAllOrders = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+exports.refundOrderItem = async (req, res) => {
+    const { refundAmount } = req.body;
+
+    try {
+        const orderItem = await OrderItem.findById(req.params.itemId);
+        if (!orderItem) {
+            return res.status(404).json({ message: 'Order item not found' });
+        }
+
+        orderItem.refunded = true;
+        orderItem.refundAmount = refundAmount;
+        const updatedOrderItem = await orderItem.save();
+
+        res.status(200).json(updatedOrderItem);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
