@@ -21,5 +21,6 @@ const productSchema = new mongoose.Schema({
     availability: { type: Boolean, default: true },
     images: [{ type: String }],
     isDeleted: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
 });
 module.exports = mongoose.model('Product', productSchema);
