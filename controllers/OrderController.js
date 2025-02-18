@@ -12,7 +12,6 @@ exports.createOrder = async (req, res) => {
         const createdOrderItems = await OrderItem.insertMany(orderItems);
 
         const order = new Order({
-            user: req.user._id,
             orderItems: createdOrderItems.map(item => item._id),
             shippingAddress,
             paymentMethod,
