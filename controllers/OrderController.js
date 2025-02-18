@@ -83,7 +83,6 @@ exports.getOrderById = async (req, res) => {
     }
 };
 
-
 exports.updateOrderToPaid = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -93,9 +92,20 @@ exports.updateOrderToPaid = async (req, res) => {
 
         order.isPaid = true;
         order.paidAt = Date.now();
-
+        
         const updatedOrder = await order.save();
-        res.status(200).json(updatedOrder);
+        
+        // Populate order details before sending response
+        const populatedOrder = await Order.findById(updatedOrder._id)
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product'
+                }
+            });
+
+        res.status(200).json(populatedOrder);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -110,20 +120,32 @@ exports.updateShippingStatus = async (req, res) => {
             return res.status(404).json({ message: 'Order not found' });
         }
 
+        // Update shipping status
         order.shippingStatus = shippingStatus;
 
+        // If status is Delivered, update isDelivered and deliveredAt
         if (shippingStatus === 'Delivered') {
             order.isDelivered = true;
             order.deliveredAt = Date.now();
         }
 
         const updatedOrder = await order.save();
-        res.status(200).json(updatedOrder);
+        
+        // Populate order details before sending response
+        const populatedOrder = await Order.findById(updatedOrder._id)
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product'
+                }
+            });
+
+        res.status(200).json(populatedOrder);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
-
 
 exports.updateOrderToDelivered = async (req, res) => {
     try {
@@ -137,7 +159,18 @@ exports.updateOrderToDelivered = async (req, res) => {
         order.shippingStatus = 'Delivered';
 
         const updatedOrder = await order.save();
-        res.status(200).json(updatedOrder);
+        
+        // Populate order details before sending response
+        const populatedOrder = await Order.findById(updatedOrder._id)
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product'
+                }
+            });
+
+        res.status(200).json(populatedOrder);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -173,13 +206,24 @@ exports.refundOrderItem = async (req, res) => {
         orderItem.refundAmount = refundAmount;
         const updatedOrderItem = await orderItem.save();
 
+        // Find and update the parent order
         const order = await Order.findOne({ orderItems: req.params.itemId });
         if (order) {
             order.shippingStatus = 'Refunded';
             await order.save();
         }
 
-        res.status(200).json(updatedOrderItem);
+        // Return the populated order for frontend state update
+        const populatedOrder = await Order.findById(order._id)
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product'
+                }
+            });
+
+        res.status(200).json(populatedOrder);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
