@@ -7,6 +7,7 @@ router.post('/', createOrder);
 router.get('/:id', getOrderById);
 router.put('/:id/pay', updateOrderToPaid);
 router.put('/:id/deliver', updateOrderToDelivered);
+router.post('/:orderId/items/:itemId/refund', refundOrderItem);
 router.get('/', getAllOrders);
 
 module.exports = router;
