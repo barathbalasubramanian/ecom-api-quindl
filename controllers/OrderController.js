@@ -11,7 +11,7 @@ exports.createOrder = async (req, res) => {
     try {
         // Transform order items to match schema
         const orderItemsToCreate = orderItems.map(item => ({
-            product: item.id, // Make sure this matches the product ID from frontend
+            product: item.id,
             name: item.name,
             qty: item.quantity,
             price: parseInt(item.price.replace(/[^0-9]/g, "")),
@@ -53,8 +53,7 @@ exports.createOrder = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode images'
+                    model: 'Product'
                 }
             });
 
@@ -75,8 +74,7 @@ exports.getOrderById = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode images'
+                    model: 'Product'
                 }
             });
         
@@ -132,8 +130,7 @@ exports.getAllOrders = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode images'
+                    model: 'Product'
                 }
             })
             .sort('-createdAt');
