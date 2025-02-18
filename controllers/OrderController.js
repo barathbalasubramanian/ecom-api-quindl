@@ -11,7 +11,7 @@ exports.createOrder = async (req, res) => {
     try {
         // Transform order items to match schema
         const orderItemsToCreate = orderItems.map(item => ({
-            product: item.product, // Assuming this is the product ID
+            product: item.product, // This should be the product ID
             name: item.name,
             qty: item.qty,
             price: item.price,
@@ -40,8 +40,8 @@ exports.createOrder = async (req, res) => {
             taxPrice,
             shippingPrice,
             totalPrice,
-            shippingStatus: 'Processing', // Default status
-            isPaid: paymentMethod === 'online', // Set paid true if online payment
+            shippingStatus: 'Processing',
+            isPaid: paymentMethod === 'online',
             paidAt: paymentMethod === 'online' ? Date.now() : null
         });
 
@@ -49,7 +49,10 @@ exports.createOrder = async (req, res) => {
 
         // Populate order items for response
         const populatedOrder = await Order.findById(createdOrder._id)
-            .populate('orderItems');
+            .populate({
+                path: 'orderItems',
+                model: 'OrderItem'
+            });
 
         res.status(201).json(populatedOrder);
     } catch (error) {
@@ -64,7 +67,10 @@ exports.createOrder = async (req, res) => {
 exports.getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
-            .populate('orderItems');
+            .populate({
+                path: 'orderItems',
+                model: 'OrderItem'
+            });
         
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
@@ -114,7 +120,10 @@ exports.updateOrderToDelivered = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({})
-            .populate('orderItems')
+            .populate({
+                path: 'orderItems',
+                model: 'OrderItem'
+            })
             .sort('-createdAt');
         res.status(200).json(orders);
     } catch (error) {
