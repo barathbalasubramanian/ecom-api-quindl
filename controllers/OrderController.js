@@ -69,7 +69,7 @@ exports.getOrderById = async (req, res) => {
         const order = await Order.findById(req.params.id)
             .populate({
                 path: 'orderItems',
-                model: 'OrderItem'
+                select: 'name qty price image refunded refundAmount'
             });
         
         if (!order) {
@@ -122,7 +122,7 @@ exports.getAllOrders = async (req, res) => {
         const orders = await Order.find({})
             .populate({
                 path: 'orderItems',
-                model: 'OrderItem'
+                select: 'name qty price image refunded refundAmount'
             })
             .sort('-createdAt');
         res.status(200).json(orders);
