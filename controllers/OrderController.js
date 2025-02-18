@@ -11,11 +11,11 @@ exports.createOrder = async (req, res) => {
     try {
         // Transform order items to match schema
         const orderItemsToCreate = orderItems.map(item => ({
-            product: item.product, // This should be the product ID
+            product: item.id, // Make sure this matches the product ID from frontend
             name: item.name,
-            qty: item.qty,
-            price: item.price,
-            image: item.image
+            qty: item.quantity,
+            price: parseInt(item.price.replace(/[^0-9]/g, "")),
+            image: item.images[0]
         }));
 
         // Create order items
@@ -51,7 +51,11 @@ exports.createOrder = async (req, res) => {
         const populatedOrder = await Order.findById(createdOrder._id)
             .populate({
                 path: 'orderItems',
-                model: 'OrderItem'
+                populate: {
+                    path: 'product',
+                    model: 'Product',
+                    select: 'productName productCode images'
+                }
             });
 
         res.status(201).json(populatedOrder);
@@ -69,7 +73,11 @@ exports.getOrderById = async (req, res) => {
         const order = await Order.findById(req.params.id)
             .populate({
                 path: 'orderItems',
-                select: 'name qty price image refunded refundAmount'
+                populate: {
+                    path: 'product',
+                    model: 'Product',
+                    select: 'productName productCode images'
+                }
             });
         
         if (!order) {
@@ -122,7 +130,11 @@ exports.getAllOrders = async (req, res) => {
         const orders = await Order.find({})
             .populate({
                 path: 'orderItems',
-                select: 'name qty price image refunded refundAmount'
+                populate: {
+                    path: 'product',
+                    model: 'Product',
+                    select: 'productName productCode images'
+                }
             })
             .sort('-createdAt');
         res.status(200).json(orders);
