@@ -9,7 +9,6 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        // Transform order items to match schema
         const orderItemsToCreate = orderItems.map(item => ({
             product: item.id,
             name: item.name,
@@ -18,10 +17,8 @@ exports.createOrder = async (req, res) => {
             image: item.images[0]
         }));
 
-        // Create order items
         const createdOrderItems = await OrderItem.insertMany(orderItemsToCreate);
 
-        // Create the order
         const order = new Order({
             orderItems: createdOrderItems.map(item => item._id),
             shippingAddress: {
@@ -47,7 +44,6 @@ exports.createOrder = async (req, res) => {
 
         const createdOrder = await order.save();
 
-        // Populate order items for response
         const populatedOrder = await Order.findById(createdOrder._id)
             .populate({
                 path: 'orderItems',
@@ -87,6 +83,7 @@ exports.getOrderById = async (req, res) => {
     }
 };
 
+
 exports.updateOrderToPaid = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
@@ -96,7 +93,6 @@ exports.updateOrderToPaid = async (req, res) => {
 
         order.isPaid = true;
         order.paidAt = Date.now();
-        order.shippingStatus = 'Confirmed';
 
         const updatedOrder = await order.save();
         res.status(200).json(updatedOrder);
@@ -104,6 +100,30 @@ exports.updateOrderToPaid = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+exports.updateShippingStatus = async (req, res) => {
+    try {
+        const { shippingStatus } = req.body;
+        const order = await Order.findById(req.params.id);
+        
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        order.shippingStatus = shippingStatus;
+
+        if (shippingStatus === 'Delivered') {
+            order.isDelivered = true;
+            order.deliveredAt = Date.now();
+        }
+
+        const updatedOrder = await order.save();
+        res.status(200).json(updatedOrder);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 
 exports.updateOrderToDelivered = async (req, res) => {
     try {
@@ -153,7 +173,6 @@ exports.refundOrderItem = async (req, res) => {
         orderItem.refundAmount = refundAmount;
         const updatedOrderItem = await orderItem.save();
 
-        // Update parent order's shipping status
         const order = await Order.findOne({ orderItems: req.params.itemId });
         if (order) {
             order.shippingStatus = 'Refunded';
