@@ -1,5 +1,5 @@
 const Order = require('../models/Order');
-const OrderItem = require('../models/OrderItem');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 exports.createOrder = async (req, res) => {
     try {
@@ -13,73 +13,47 @@ exports.createOrder = async (req, res) => {
             totalPrice 
         } = req.body;
 
-        console.log('Received order data:', req.body);
-
-        if (!orderItems || !Array.isArray(orderItems) || orderItems.length === 0) {
-            return res.status(400).json({ 
-                message: 'Invalid order items',
-                details: 'Order items must be a non-empty array'
-            });
-        }
-
-        if (!shippingAddress) {
-            return res.status(400).json({ 
-                message: 'Invalid shipping address',
-                details: 'Shipping address is required'
-            });
-        }
-
-        const orderItemsToCreate = orderItems.map(item => ({
-            product: item.id,
-            name: item.name,
-            qty: item.quantity,
-            price: typeof item.price === 'number' ? item.price : parseInt(item.price),
-            image: Array.isArray(item.images) ? item.images[0] : item.image
-        }));
-
-        console.log('Creating order items:', orderItemsToCreate);
-
-        const createdOrderItems = await OrderItem.insertMany(orderItemsToCreate);
-
+        // Create the order
         const order = new Order({
-            orderItems: createdOrderItems.map(item => item._id),
-            shippingAddress: {
-                firstName: shippingAddress.firstName,
-                lastName: shippingAddress.lastName,
-                email: shippingAddress.email,
-                addressLine1: shippingAddress.addressLine1,
-                addressLine2: shippingAddress.addressLine2,
-                city: shippingAddress.city,
-                pincode: shippingAddress.postalCode,
-                state: shippingAddress.state,
-                phoneNumber: `${shippingAddress.phoneCode}${shippingAddress.phoneNumber}`
-            },
+            orderItems: orderItems.map(item => ({
+                product: item.product,
+                name: item.name,
+                qty: item.qty,
+                price: item.price,
+                image: item.image
+            })),
+            shippingAddress,
             paymentMethod,
-            itemsPrice: Number(itemsPrice),
-            taxPrice: Number(taxPrice),
-            shippingPrice: Number(shippingPrice),
-            totalPrice: Number(totalPrice),
-            shippingStatus: 'Processing',
-            isPaid: paymentMethod === 'online',
-            paidAt: paymentMethod === 'online' ? Date.now() : null
+            itemsPrice,
+            taxPrice,
+            shippingPrice,
+            totalPrice,
+            isPaid: paymentMethod === 'cod' ? false : false,
+            orderStatus: 'Pending'
         });
-
-        console.log('Creating order:', order);
 
         const createdOrder = await order.save();
 
-        const populatedOrder = await Order.findById(createdOrder._id)
-            .populate({
-                path: 'orderItems',
-                populate: {
-                    path: 'product',
-                    model: 'Product'
+        if (paymentMethod === 'online') {
+            // Create Stripe payment intent
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(totalPrice * 100), // Convert to cents
+                currency: 'inr',
+                metadata: {
+                    orderId: createdOrder._id.toString()
                 }
             });
 
+            return res.status(201).json({
+                success: true,
+                order: createdOrder,
+                clientSecret: paymentIntent.client_secret
+            });
+        }
+
         res.status(201).json({
             success: true,
-            order: populatedOrder
+            order: createdOrder
         });
 
     } catch (error) {
@@ -87,12 +61,39 @@ exports.createOrder = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to create order',
-            error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-            details: error.details || 'Internal server error'
+            error: error.message
         });
     }
 };
+
+exports.updateOrderPayment = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { paymentIntentId, paymentStatus } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        order.isPaid = true;
+        order.paidAt = Date.now();
+        order.orderStatus = 'Processing';
+        order.paymentResult = {
+            id: paymentIntentId,
+            status: paymentStatus,
+            update_time: new Date().toISOString(),
+            email_address: order.shippingAddress.email
+        };
+
+        const updatedOrder = await order.save();
+        res.json(updatedOrder);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 exports.getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
