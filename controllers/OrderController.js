@@ -14,22 +14,17 @@ exports.createOrder = async (req, res) => {
             totalPrice 
         } = req.body;
 
-        // Create order items with additional product details
         const orderItemsData = await Promise.all(orderItems.map(async item => {
             const orderItem = new OrderItem({
-                product: item.product._id || item.product,
+                product: item.product,
                 name: item.name,
                 qty: item.qty,
                 price: item.price,
-                image: item.image,
-                variantName: item.variantName,
-                variantId: item.variantId,
-                color: item.color
+                image: item.image
             });
             return await orderItem.save();
         }));
 
-        // Create the order with saved order items
         const order = new Order({
             orderItems: orderItemsData.map(item => item._id),
             shippingAddress,
@@ -45,9 +40,8 @@ exports.createOrder = async (req, res) => {
         const createdOrder = await order.save();
 
         if (paymentMethod === 'online') {
-            // Create Stripe payment intent
             const paymentIntent = await stripe.paymentIntents.create({
-                amount: Math.round(totalPrice * 100), // Convert to cents
+                amount: Math.round(totalPrice * 100),
                 currency: 'inr',
                 metadata: {
                     orderId: createdOrder._id.toString()
@@ -97,18 +91,7 @@ exports.updateOrderPayment = async (req, res) => {
         };
 
         const updatedOrder = await order.save();
-        
-        const populatedOrder = await Order.findById(updatedOrder._id)
-            .populate({
-                path: 'orderItems',
-                populate: {
-                    path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
-                }
-            });
-
-        res.json(populatedOrder);
+        res.json(updatedOrder);
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -122,8 +105,7 @@ exports.getOrderById = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
+                    model: 'Product'
                 }
             });
         
@@ -154,8 +136,7 @@ exports.updateOrderToPaid = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
+                    model: 'Product'
                 }
             });
 
@@ -188,37 +169,7 @@ exports.updateOrderStatus = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
-                }
-            });
-
-        res.status(200).json(populatedOrder);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-exports.updateOrderToDelivered = async (req, res) => {
-    try {
-        const order = await Order.findById(req.params.id);
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
-        }
-
-        order.isDelivered = true;
-        order.deliveredAt = Date.now();
-        order.orderStatus = 'Delivered';
-
-        const updatedOrder = await order.save();
-        
-        const populatedOrder = await Order.findById(updatedOrder._id)
-            .populate({
-                path: 'orderItems',
-                populate: {
-                    path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
+                    model: 'Product'
                 }
             });
 
@@ -235,8 +186,7 @@ exports.getAllOrders = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
+                    model: 'Product'
                 }
             })
             .sort('-createdAt');
@@ -257,11 +207,11 @@ exports.refundOrderItem = async (req, res) => {
 
         orderItem.refunded = true;
         orderItem.refundAmount = refundAmount;
-        const updatedOrderItem = await orderItem.save();
+        await orderItem.save();
 
         const order = await Order.findOne({ orderItems: req.params.itemId });
         if (order) {
-            order.orderStatus = 'Refunded';
+            order.orderStatus = 'Cancelled';
             await order.save();
         }
 
@@ -270,8 +220,7 @@ exports.refundOrderItem = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
+                    model: 'Product'
                 }
             });
 
@@ -281,20 +230,4 @@ exports.refundOrderItem = async (req, res) => {
     }
 };
 
-exports.getUserOrders = async (req, res) => {
-    try {
-        const orders = await Order.find({ 'user': req.user._id })
-            .populate({
-                path: 'orderItems',
-                populate: {
-                    path: 'product',
-                    model: 'Product',
-                    select: 'productName productCode categoryName variantName color stock availability images'
-                }
-            })
-            .sort('-createdAt');
-        res.status(200).json(orders);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+module.exports = exports;
