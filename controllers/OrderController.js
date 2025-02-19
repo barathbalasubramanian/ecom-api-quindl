@@ -15,15 +15,11 @@ exports.createOrder = async (req, res) => {
         } = req.body;
 
         const orderItemsData = await Promise.all(orderItems.map(async item => {
-            const price = typeof item.price === 'string' 
-                ? parseInt(item.price.replace(/[^0-9]/g, ""))
-                : item.price;
-
             const orderItem = new OrderItem({
                 product: item.product,
                 name: item.name,
                 qty: item.qty,
-                price: price,
+                price: item.price,
                 image: item.image || ''
             });
             return await orderItem.save();
@@ -43,17 +39,17 @@ exports.createOrder = async (req, res) => {
                 phoneNumber: shippingAddress.phoneNumber
             },
             paymentMethod,
-            itemsPrice: Number(itemsPrice),
-            taxPrice: Number(taxPrice),
-            shippingPrice: Number(shippingPrice),
-            totalPrice: Number(totalPrice),
+            itemsPrice,
+            taxPrice,
+            shippingPrice,
+            totalPrice,
             isPaid: paymentMethod === 'COD' ? false : false,
             orderStatus: 'Pending'
         });
 
         const createdOrder = await order.save();
 
-        if (paymentMethod === 'online') {
+        if (paymentMethod.toLowerCase() === 'online') {
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: Math.round(totalPrice * 100),
                 currency: 'inr',
@@ -83,6 +79,7 @@ exports.createOrder = async (req, res) => {
         });
     }
 };
+
 
 exports.updateOrderPayment = async (req, res) => {
     try {
