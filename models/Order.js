@@ -12,14 +12,17 @@ const orderSchema = new mongoose.Schema({
         phoneNumber: { type: String, required: true }
     },
     paymentMethod: { type: String, required: true },
+    paymentResult: {id: { type: String },status: { type: String },update_time: { type: String },email_address: { type: String } },
     itemsPrice: { type: Number, required: true },
     taxPrice: { type: Number, required: true },
     shippingPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
     isPaid: { type: Boolean, default: false },
-    shippingStatus: { type: String, enum: ['Processing', 'Shipped', 'Delivered', 'Cancelled', 'Refunded'],default: 'Processing' },
     paidAt: { type: Date },
     isDelivered: { type: Boolean, default: false },
     deliveredAt: { type: Date },
+    orderStatus: { type: String, enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'], default: 'Pending' },
     createdAt: { type: Date, default: Date.now }
 });
+
+module.exports = mongoose.model('Order', orderSchema);
