@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const OrderItem = require('../models/OrderItem');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 exports.createOrder = async (req, res) => {
@@ -13,22 +14,31 @@ exports.createOrder = async (req, res) => {
             totalPrice 
         } = req.body;
 
-        // Create the order
-        const order = new Order({
-            orderItems: orderItems.map(item => ({
-                product: item.product,
+        // Create order items with additional product details
+        const orderItemsData = await Promise.all(orderItems.map(async item => {
+            const orderItem = new OrderItem({
+                product: item.product._id || item.product,
                 name: item.name,
                 qty: item.qty,
                 price: item.price,
-                image: item.image
-            })),
+                image: item.image,
+                variantName: item.variantName,
+                variantId: item.variantId,
+                color: item.color
+            });
+            return await orderItem.save();
+        }));
+
+        // Create the order with saved order items
+        const order = new Order({
+            orderItems: orderItemsData.map(item => item._id),
             shippingAddress,
             paymentMethod,
             itemsPrice,
             taxPrice,
             shippingPrice,
             totalPrice,
-            isPaid: paymentMethod === 'cod' ? false : false,
+            isPaid: false,
             orderStatus: 'Pending'
         });
 
@@ -87,7 +97,18 @@ exports.updateOrderPayment = async (req, res) => {
         };
 
         const updatedOrder = await order.save();
-        res.json(updatedOrder);
+        
+        const populatedOrder = await Order.findById(updatedOrder._id)
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
+                }
+            });
+
+        res.json(populatedOrder);
 
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -101,7 +122,8 @@ exports.getOrderById = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             });
         
@@ -123,6 +145,7 @@ exports.updateOrderToPaid = async (req, res) => {
 
         order.isPaid = true;
         order.paidAt = Date.now();
+        order.orderStatus = 'Processing';
         
         const updatedOrder = await order.save();
         
@@ -131,7 +154,8 @@ exports.updateOrderToPaid = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             });
 
@@ -141,18 +165,18 @@ exports.updateOrderToPaid = async (req, res) => {
     }
 };
 
-exports.updateShippingStatus = async (req, res) => {
+exports.updateOrderStatus = async (req, res) => {
     try {
-        const { shippingStatus } = req.body;
+        const { orderStatus } = req.body;
         const order = await Order.findById(req.params.id);
         
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
 
-        order.shippingStatus = shippingStatus;
+        order.orderStatus = orderStatus;
 
-        if (shippingStatus === 'Delivered') {
+        if (orderStatus === 'Delivered') {
             order.isDelivered = true;
             order.deliveredAt = Date.now();
         }
@@ -164,7 +188,8 @@ exports.updateShippingStatus = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             });
 
@@ -183,7 +208,7 @@ exports.updateOrderToDelivered = async (req, res) => {
 
         order.isDelivered = true;
         order.deliveredAt = Date.now();
-        order.shippingStatus = 'Delivered';
+        order.orderStatus = 'Delivered';
 
         const updatedOrder = await order.save();
         
@@ -192,7 +217,8 @@ exports.updateOrderToDelivered = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             });
 
@@ -209,7 +235,8 @@ exports.getAllOrders = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             })
             .sort('-createdAt');
@@ -234,7 +261,7 @@ exports.refundOrderItem = async (req, res) => {
 
         const order = await Order.findOne({ orderItems: req.params.itemId });
         if (order) {
-            order.shippingStatus = 'Refunded';
+            order.orderStatus = 'Refunded';
             await order.save();
         }
 
@@ -243,11 +270,30 @@ exports.refundOrderItem = async (req, res) => {
                 path: 'orderItems',
                 populate: {
                     path: 'product',
-                    model: 'Product'
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
                 }
             });
 
         res.status(200).json(populatedOrder);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+exports.getUserOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ 'user': req.user._id })
+            .populate({
+                path: 'orderItems',
+                populate: {
+                    path: 'product',
+                    model: 'Product',
+                    select: 'productName productCode categoryName variantName color stock availability images'
+                }
+            })
+            .sort('-createdAt');
+        res.status(200).json(orders);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
