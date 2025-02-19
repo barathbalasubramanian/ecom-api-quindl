@@ -10,7 +10,7 @@ const productSchema = new mongoose.Schema({
     sareeSize: { type: Number },
     blouseSize: { type: Number },
     materialAndCare: { type: String },
-    stock: { type: Number, required: true },
+    stock: { type: Number, required: true, default: 0 },
     actualPrice: { type: Number, required: true },
     sellingPrice: { type: Number, required: true },
     tags: [{ type: String }],
