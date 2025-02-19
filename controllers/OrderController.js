@@ -2,31 +2,42 @@ const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 
 exports.createOrder = async (req, res) => {
-    const { orderItems, shippingAddress, paymentMethod, itemsPrice, taxPrice, shippingPrice, totalPrice } = req.body;
-
     try {
-        if (!orderItems || orderItems.length === 0) {
-            return res.status(400).json({ message: 'No order items provided' });
+        const { 
+            orderItems, 
+            shippingAddress, 
+            paymentMethod, 
+            itemsPrice, 
+            taxPrice, 
+            shippingPrice, 
+            totalPrice 
+        } = req.body;
+
+        console.log('Received order data:', req.body);
+
+        if (!orderItems || !Array.isArray(orderItems) || orderItems.length === 0) {
+            return res.status(400).json({ 
+                message: 'Invalid order items',
+                details: 'Order items must be a non-empty array'
+            });
         }
 
         if (!shippingAddress) {
-            return res.status(400).json({ message: 'Shipping address is required' });
+            return res.status(400).json({ 
+                message: 'Invalid shipping address',
+                details: 'Shipping address is required'
+            });
         }
 
-        const orderItemsToCreate = orderItems.map(item => {
-            let price = item.price;
-            if (typeof price === 'string') {
-                price = parseInt(price.replace(/[^\d]/g, ''));
-            }
+        const orderItemsToCreate = orderItems.map(item => ({
+            product: item.id,
+            name: item.name,
+            qty: item.quantity,
+            price: typeof item.price === 'number' ? item.price : parseInt(item.price),
+            image: Array.isArray(item.images) ? item.images[0] : item.image
+        }));
 
-            return {
-                product: item.id,
-                name: item.name,
-                qty: item.quantity || 1,
-                price: price,
-                image: Array.isArray(item.images) ? item.images[0] : item.image
-            };
-        });
+        console.log('Creating order items:', orderItemsToCreate);
 
         const createdOrderItems = await OrderItem.insertMany(orderItemsToCreate);
 
@@ -37,21 +48,23 @@ exports.createOrder = async (req, res) => {
                 lastName: shippingAddress.lastName,
                 email: shippingAddress.email,
                 addressLine1: shippingAddress.addressLine1,
-                addressLine2: shippingAddress.addressLine2 || '',
+                addressLine2: shippingAddress.addressLine2,
                 city: shippingAddress.city,
                 pincode: shippingAddress.postalCode,
                 state: shippingAddress.state,
                 phoneNumber: `${shippingAddress.phoneCode}${shippingAddress.phoneNumber}`
             },
-            paymentMethod: paymentMethod || 'COD',
-            itemsPrice: parseFloat(itemsPrice) || 0,
-            taxPrice: parseFloat(taxPrice) || 0,
-            shippingPrice: parseFloat(shippingPrice) || 0,
-            totalPrice: parseFloat(totalPrice) || 0,
+            paymentMethod,
+            itemsPrice: Number(itemsPrice),
+            taxPrice: Number(taxPrice),
+            shippingPrice: Number(shippingPrice),
+            totalPrice: Number(totalPrice),
             shippingStatus: 'Processing',
             isPaid: paymentMethod === 'online',
             paidAt: paymentMethod === 'online' ? Date.now() : null
         });
+
+        console.log('Creating order:', order);
 
         const createdOrder = await order.save();
 
@@ -71,15 +84,15 @@ exports.createOrder = async (req, res) => {
 
     } catch (error) {
         console.error('Order creation error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
             message: 'Failed to create order',
             error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            details: error.details || 'Internal server error'
         });
     }
 };
-
 exports.getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
