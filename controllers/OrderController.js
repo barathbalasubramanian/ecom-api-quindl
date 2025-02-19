@@ -15,25 +15,39 @@ exports.createOrder = async (req, res) => {
         } = req.body;
 
         const orderItemsData = await Promise.all(orderItems.map(async item => {
+            const price = typeof item.price === 'string' 
+                ? parseInt(item.price.replace(/[^0-9]/g, ""))
+                : item.price;
+
             const orderItem = new OrderItem({
                 product: item.product,
                 name: item.name,
                 qty: item.qty,
-                price: item.price,
-                image: item.image
+                price: price,
+                image: item.image || ''
             });
             return await orderItem.save();
         }));
 
         const order = new Order({
             orderItems: orderItemsData.map(item => item._id),
-            shippingAddress,
+            shippingAddress: {
+                firstName: shippingAddress.firstName,
+                lastName: shippingAddress.lastName,
+                email: shippingAddress.email,
+                addressLine1: shippingAddress.addressLine1,
+                addressLine2: shippingAddress.addressLine2 || '',
+                city: shippingAddress.city,
+                pincode: shippingAddress.pincode,
+                state: shippingAddress.state,
+                phoneNumber: shippingAddress.phoneNumber
+            },
             paymentMethod,
-            itemsPrice,
-            taxPrice,
-            shippingPrice,
-            totalPrice,
-            isPaid: false,
+            itemsPrice: Number(itemsPrice),
+            taxPrice: Number(taxPrice),
+            shippingPrice: Number(shippingPrice),
+            totalPrice: Number(totalPrice),
+            isPaid: paymentMethod === 'COD' ? false : false,
             orderStatus: 'Pending'
         });
 
