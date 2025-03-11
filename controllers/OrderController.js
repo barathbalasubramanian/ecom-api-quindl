@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
+const Product = require('../models/Product');
 
 exports.createOrder = async (req, res) => {
     const { orderItems, shippingAddress, paymentMethod, itemsPrice, taxPrice, shippingPrice, totalPrice } = req.body;
@@ -9,8 +10,6 @@ exports.createOrder = async (req, res) => {
     }
 
     try {
-        const Product = require('../models/Product');
-        
         for (const item of orderItems) {
             const product = await Product.findById(item.product);
             if (!product) {
@@ -62,7 +61,6 @@ exports.createOrder = async (req, res) => {
 exports.restoreStock = async (orderId) => {
     try {
         const order = await Order.findById(orderId).populate('orderItems');
-        const Product = require('../models/Product');
 
         for (const orderItem of order.orderItems) {
             const product = await Product.findById(orderItem.product);
